@@ -99,11 +99,10 @@ function onListening() {
 const client = new AWS.TranscribeStreamingClient({
     region: "us-east-2",
     credentials: {
-        accessKeyId: "",
-        secretAccessKey: "",
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     }
 });
-console.log(process.env.AWS1_ACCESS_KEY_ID, '-', process.env.AWS1_SECRET_ACCESS_KEY)
 
 // Handle Web Socket Connection
 wss.on("connection", function connection(ws) {
