@@ -26,7 +26,7 @@ var server = http.createServer(app);
 /**
  * Create Web Socket server.
  * */
-var wss = new WebSocket.Server({ server });
+var wss = new WebSocket.Server({server});
 
 /**
  * Listen on provided port, on all network interfaces.
@@ -41,19 +41,19 @@ server.on('listening', onListening);
  */
 
 function normalizePort(val) {
-  var port = parseInt(val, 10);
+    var port = parseInt(val, 10);
 
-  if (isNaN(port)) {
-    // named pipe
-    return val;
-  }
+    if (isNaN(port)) {
+        // named pipe
+        return val;
+    }
 
-  if (port >= 0) {
-    // port number
-    return port;
-  }
+    if (port >= 0) {
+        // port number
+        return port;
+    }
 
-  return false;
+    return false;
 }
 
 /**
@@ -61,27 +61,27 @@ function normalizePort(val) {
  */
 
 function onError(error) {
-  if (error.syscall !== 'listen') {
-    throw error;
-  }
+    if (error.syscall !== 'listen') {
+        throw error;
+    }
 
-  var bind = typeof port === 'string'
-    ? 'Pipe ' + port
-    : 'Port ' + port;
+    var bind = typeof port === 'string'
+        ? 'Pipe ' + port
+        : 'Port ' + port;
 
-  // handle specific listen errors with friendly messages
-  switch (error.code) {
-    case 'EACCES':
-      console.error(bind + ' requires elevated privileges');
-      process.exit(1);
-      break;
-    case 'EADDRINUSE':
-      console.error(bind + ' is already in use');
-      process.exit(1);
-      break;
-    default:
-      throw error;
-  }
+    // handle specific listen errors with friendly messages
+    switch (error.code) {
+        case 'EACCES':
+            console.error(bind + ' requires elevated privileges');
+            process.exit(1);
+            break;
+        case 'EADDRINUSE':
+            console.error(bind + ' is already in use');
+            process.exit(1);
+            break;
+        default:
+            throw error;
+    }
 }
 
 /**
@@ -89,48 +89,59 @@ function onError(error) {
  */
 
 function onListening() {
-  var addr = server.address();
-  var bind = typeof addr === 'string'
-    ? 'pipe ' + addr
-    : 'port ' + addr.port;
-  debug('Listening on ' + bind);
+    var addr = server.address();
+    var bind = typeof addr === 'string'
+        ? 'pipe ' + addr
+        : 'port ' + addr.port;
+    debug('Listening on ' + bind);
 }
+
+const client = new AWS.TranscribeStreamingClient({
+    region: "us-east-2",
+    credentials: {
+        accessKeyId: "",
+        secretAccessKey: "",
+    }
+});
+console.log(process.env.AWS1_ACCESS_KEY_ID, '-', process.env.AWS1_SECRET_ACCESS_KEY)
 
 // Handle Web Socket Connection
 wss.on("connection", function connection(ws) {
-  console.log("New Connection Initiated");
-  const client = new AWS.TranscribeStreaming({
-    region: "us-east-2",
-    accessKeyId: process.env.AWS1_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS1_SECRET_ACCESS_KEY,
-  });
+    const audioStream = async function* (chunk) {
+        yield { AudioEvent: { AudioChunk: chunk } };
+    };
+    console.log("New Connection Initiated");
 
-  ws.on("message", function incoming(message) {
-    const msg = JSON.parse(message);
-    switch (msg.event) {
-      case "connected":
-        console.log(`A new call has connected.`);
-        break;
-      case "start":
-        console.log(`Starting Media Stream ${msg.streamSid}`);
-        break;
-      case "media":
-        console.log(`Receiving Audio...`);
-        client.startMedicalStreamTranscription({
-          "AudioStream": {
-            "AudioEvent": {
-              "AudioChunk": msg.media.payload
-            }
-          }
-        }, (err, data) => {
-          console.log(err,data)
-        });
-        break;
-      case "stop":
-        console.log(`Call Has Ended`);
-        client.destroy();
-        break;
-    }
-  });
+    ws.on("message", function incoming(message) {
+        const msg = JSON.parse(message);
+        let flag=true;
+        switch (msg.event) {
+            case "connected":
+                console.log(`A new call has connected.`);
+                break;
+            case "start":
+                console.log(`Starting Media Stream ${msg.streamSid}`);
+                break;
+            case "media":
+                console.log(`Receiving Audio...`);
+                let params={
+                    "MediaSampleRateHertz": 8000,
+                    "LanguageCode": 'es-US',
+                    "MediaEncoding": 'pcm',
+                    "AudioStream": {
+                        "AudioEvent": {
+                            "AudioChunk": msg.media.payload
+                        }
+                    }
+                };
+                client.send(new AWS.StartStreamTranscriptionCommand(params)).then(data=>console.log(data)).catch(err=>console.log(err));
+                break;
+            case "stop":
+                console.log(`Call Has Ended`);
+                flag=false;
+                client.destroy();
+                break;
+        }
+    });
 
 });
